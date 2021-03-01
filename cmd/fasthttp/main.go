@@ -15,7 +15,6 @@ import (
 	"github.com/valyala/fasthttp"
 	"go.uber.org/fx"
 	"io"
-	"runtime"
 	"sync"
 )
 
@@ -73,16 +72,24 @@ func (h *handler) Send(ctx *fasthttp.RequestCtx) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		bufferSize := 100
+		buff := make([]metricsEnt.AggregatedMetric, 0, bufferSize)
 		for m := range metrics {
-			h.s.Send(m)
+			buff = append(buff, m)
+			if len(buff) == bufferSize {
+				tmp := buff
+				go h.s.Send(tmp)
+				buff = make([]metricsEnt.AggregatedMetric, 0, bufferSize)
+			}
 		}
+		h.s.Send(buff)
 	}()
 	wg.Wait()
 	return
 }
 
 func parser(c *fasthttp.RequestCtx) chan metricsEnt.AggregatedMetric {
-	output := make(chan metricsEnt.AggregatedMetric, runtime.GOMAXPROCS(0))
+	output := make(chan metricsEnt.AggregatedMetric, 100)
 	go func() {
 		defer close(output)
 		r := bufio.NewReader(c.RequestBodyStream())

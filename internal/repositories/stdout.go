@@ -1,21 +1,32 @@
 package repositories
 
 import (
-	jsoniter "github.com/json-iterator/go"
 	metricsEnt "github.com/maxim-kuderko/metrics/entities"
-	"os"
+	"go.uber.org/atomic"
+	"time"
 )
 
 type Stdout struct {
+	c *atomic.Int64
 }
 
 func (s Stdout) Send(r metricsEnt.Metrics) error {
+	c := int64(0)
 	for _, m := range r {
-		jsoniter.ConfigFastest.NewEncoder(os.Stdout).Encode(m)
+		c += m.Values.Count
 	}
+	s.c.Add(c)
 	return nil
 }
 
 func NewStdout() Repo {
-	return &Stdout{}
+	s := &Stdout{c: atomic.NewInt64(0)}
+	go func() {
+		w := 3
+		t := time.NewTicker(time.Second * time.Duration(w))
+		for range t.C {
+			//fmt.Println(fmt.Sprintf("%0.2fm req/sec ",float64(s.c.Swap(0)) /1000000/float64(w)))
+		}
+	}()
+	return s
 }
