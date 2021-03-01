@@ -105,6 +105,7 @@ func (r *Service) flush(i int) {
 			<-r.flushSemaphore
 			tmp.Reset()
 			for _, m := range tmp {
+				requests.Reset(m)
 				requests.MetricPool.Put(m)
 			}
 			MetricsPool.Put(tmp)
