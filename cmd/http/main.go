@@ -19,7 +19,6 @@ import (
 	"io"
 	"net/http"
 	_ "net/http/pprof"
-	"sync"
 )
 
 func main() {
@@ -69,49 +68,30 @@ func (h *handler) Health(w http.ResponseWriter, r *http.Request, _ httprouter.Pa
 }
 
 func (h *handler) Send(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	metrics := parser(w, r)
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for m := range metrics {
-			h.s.Send(m)
+	defer r.Body.Close()
+	rr := bufio.NewReader(snappy.NewReader(r.Body))
+	ok := true
+	for {
+		b, err := rr.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Println(err)
+			break
 		}
-	}()
-	wg.Wait()
+		m := requests.MetricPool.Get().(*metricsEnt.AggregatedMetric)
+		err = jsoniter.ConfigFastest.Unmarshal(b, &m)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			jsoniter.ConfigFastest.NewEncoder(w).Encode(err)
+			ok = false
+			break
+		}
+		h.s.Send(m)
+	}
+	if ok {
+		w.WriteHeader(fasthttp.StatusNoContent)
+	}
 	return
-}
-
-func parser(w http.ResponseWriter, r *http.Request) chan *metricsEnt.AggregatedMetric {
-	output := make(chan *metricsEnt.AggregatedMetric, 100)
-	go func() {
-		defer close(output)
-		defer r.Body.Close()
-		r := bufio.NewReader(snappy.NewReader(r.Body))
-		ok := true
-		for {
-			b, err := r.ReadBytes('\n')
-			if err != nil {
-				if err == io.EOF {
-					break
-				}
-				fmt.Println(err)
-				break
-			}
-			m := requests.MetricPool.Get().(*metricsEnt.AggregatedMetric)
-			err = jsoniter.ConfigFastest.Unmarshal(b, &m)
-			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				jsoniter.ConfigFastest.NewEncoder(w).Encode(err)
-				ok = false
-				break
-			}
-			output <- m
-		}
-		if ok {
-			w.WriteHeader(fasthttp.StatusNoContent)
-		}
-	}()
-
-	return output
 }

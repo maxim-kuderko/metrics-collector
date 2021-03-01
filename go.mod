@@ -12,6 +12,7 @@ require (
 	github.com/maxim-kuderko/metrics v0.0.0-20210301131102-d3c4c4bb59c1
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/spf13/viper v1.7.1
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.21.0
 	github.com/valyala/fastrand v1.0.0 // indirect
 	go.opentelemetry.io/otel v0.17.0
