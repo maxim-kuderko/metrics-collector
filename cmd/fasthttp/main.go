@@ -15,10 +15,16 @@ import (
 	"github.com/valyala/fasthttp"
 	"go.uber.org/fx"
 	"io"
+	"net/http"
+	_ "net/http/pprof"
 	"sync"
 )
 
 func main() {
+	go func() {
+		fmt.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	app := fx.New(
 		fx.NopLogger,
 		fx.Provide(
@@ -72,7 +78,7 @@ func (h *handler) Send(ctx *fasthttp.RequestCtx) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		bufferSize := 100
+		bufferSize := 100000
 		buff := make([]metricsEnt.AggregatedMetric, 0, bufferSize)
 		for m := range metrics {
 			buff = append(buff, m)
