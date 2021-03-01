@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/fasthttp/router"
 	"github.com/golang/snappy"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/julienschmidt/httprouter"
 	"github.com/maxim-kuderko/metrics-collector/internal/initializers"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
 	"github.com/maxim-kuderko/metrics-collector/internal/service"
@@ -43,20 +43,15 @@ func main() {
 	}
 }
 
-func route(h *handler) *router.Router {
-	router := router.New()
+func route(h *handler) *httprouter.Router {
+	router := httprouter.New()
 	router.GET("/health", h.Health)
 	router.POST("/send", h.Send)
 	return router
 }
 
-func webserver(r *router.Router, v *viper.Viper) {
-	server := fasthttp.Server{
-		Handler:           r.Handler,
-		TCPKeepalive:      true,
-		StreamRequestBody: true,
-	}
-	log.Error(server.ListenAndServe(fmt.Sprintf(`:%s`, v.GetString(`HTTP_SERVER_PORT`))))
+func webserver(r *httprouter.Router, v *viper.Viper) {
+	log.Error(http.ListenAndServe(fmt.Sprintf(":%s", v.GetString(`HTTP_SERVER_PORT`)), r))
 }
 
 type handler struct {
@@ -68,12 +63,12 @@ func newHandler(s *service.Service) *handler {
 		s: s,
 	}
 }
-func (h *handler) Health(ctx *fasthttp.RequestCtx) {
+func (h *handler) Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 }
 
-func (h *handler) Send(ctx *fasthttp.RequestCtx) {
-	metrics := parser(ctx)
+func (h *handler) Send(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	metrics := parser(w, r)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
@@ -94,11 +89,12 @@ func (h *handler) Send(ctx *fasthttp.RequestCtx) {
 	return
 }
 
-func parser(c *fasthttp.RequestCtx) chan metricsEnt.AggregatedMetric {
+func parser(w http.ResponseWriter, r *http.Request) chan metricsEnt.AggregatedMetric {
 	output := make(chan metricsEnt.AggregatedMetric, 100)
 	go func() {
 		defer close(output)
-		r := bufio.NewReader(snappy.NewReader(c.RequestBodyStream()))
+		defer r.Body.Close()
+		r := bufio.NewReader(snappy.NewReader(r.Body))
 		ok := true
 		for {
 			b, err := r.ReadBytes('\n')
@@ -112,15 +108,15 @@ func parser(c *fasthttp.RequestCtx) chan metricsEnt.AggregatedMetric {
 			var m metricsEnt.AggregatedMetric
 			err = jsoniter.ConfigFastest.Unmarshal(b, &m)
 			if err != nil {
-				c.SetStatusCode(fasthttp.StatusBadRequest)
-				jsoniter.ConfigFastest.NewEncoder(c).Encode(err)
+				w.WriteHeader(http.StatusBadRequest)
+				jsoniter.ConfigFastest.NewEncoder(w).Encode(err)
 				ok = false
 				break
 			}
 			output <- m
 		}
 		if ok {
-			c.SetStatusCode(fasthttp.StatusNoContent)
+			w.WriteHeader(fasthttp.StatusNoContent)
 		}
 	}()
 
