@@ -78,17 +78,9 @@ func (h *handler) Send(ctx *fasthttp.RequestCtx) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		bufferSize := 100000
-		buff := make([]metricsEnt.AggregatedMetric, 0, bufferSize)
 		for m := range metrics {
-			buff = append(buff, m)
-			if len(buff) == bufferSize {
-				tmp := buff
-				go h.s.Send(tmp)
-				buff = make([]metricsEnt.AggregatedMetric, 0, bufferSize)
-			}
+			h.s.Send(m)
 		}
-		h.s.Send(buff)
 	}()
 	wg.Wait()
 	return

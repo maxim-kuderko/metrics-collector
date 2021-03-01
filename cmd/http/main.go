@@ -10,6 +10,7 @@ import (
 	"github.com/maxim-kuderko/metrics-collector/internal/initializers"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
 	"github.com/maxim-kuderko/metrics-collector/internal/service"
+	"github.com/maxim-kuderko/metrics-collector/pkg/requests"
 	metricsEnt "github.com/maxim-kuderko/metrics/entities"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/spf13/viper"
@@ -73,24 +74,16 @@ func (h *handler) Send(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		bufferSize := 100000
-		buff := make([]metricsEnt.AggregatedMetric, 0, bufferSize)
 		for m := range metrics {
-			buff = append(buff, m)
-			if len(buff) == bufferSize {
-				tmp := buff
-				go h.s.Send(tmp)
-				buff = make([]metricsEnt.AggregatedMetric, 0, bufferSize)
-			}
+			h.s.Send(m)
 		}
-		h.s.Send(buff)
 	}()
 	wg.Wait()
 	return
 }
 
-func parser(w http.ResponseWriter, r *http.Request) chan metricsEnt.AggregatedMetric {
-	output := make(chan metricsEnt.AggregatedMetric, 100)
+func parser(w http.ResponseWriter, r *http.Request) chan *metricsEnt.AggregatedMetric {
+	output := make(chan *metricsEnt.AggregatedMetric, 100)
 	go func() {
 		defer close(output)
 		defer r.Body.Close()
@@ -105,7 +98,7 @@ func parser(w http.ResponseWriter, r *http.Request) chan metricsEnt.AggregatedMe
 				fmt.Println(err)
 				break
 			}
-			var m metricsEnt.AggregatedMetric
+			m := requests.MetricPool.Get().(*metricsEnt.AggregatedMetric)
 			err = jsoniter.ConfigFastest.Unmarshal(b, &m)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)

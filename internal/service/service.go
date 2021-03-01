@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
+	"github.com/maxim-kuderko/metrics-collector/pkg/requests"
 	metricsEnt "github.com/maxim-kuderko/metrics/entities"
 	"github.com/spf13/viper"
 	"sync"
@@ -64,23 +65,21 @@ func (s *Service) flusher() {
 	}
 }
 
-func (r *Service) Send(metrics []metricsEnt.AggregatedMetric) {
-	for _, m := range metrics {
-		r.send(m)
-	}
+func (r *Service) Send(metric *metricsEnt.AggregatedMetric) {
+	r.send(metric)
 }
 
-func (r *Service) send(metric metricsEnt.AggregatedMetric) {
+func (r *Service) send(metric *metricsEnt.AggregatedMetric) {
 	shard := metric.Hash % uint64(len(r.mu))
 	r.mu[shard].Lock()
 	defer r.mu[shard].Unlock()
 	v, ok := r.buffer[shard][metric.Hash]
 	if !ok {
-		r.buffer[shard][metric.Hash] = &metric
-		v = &metric
+		r.buffer[shard][metric.Hash] = metric
+		v = metric
 		return
 	}
-	v.Merge(&metric)
+	v.Merge(metric)
 }
 
 func (r *Service) Close() {
@@ -105,6 +104,9 @@ func (r *Service) flush(i int) {
 		defer func() {
 			<-r.flushSemaphore
 			tmp.Reset()
+			for _, m := range tmp {
+				requests.MetricPool.Put(m)
+			}
 			MetricsPool.Put(tmp)
 			r.wg.Done()
 		}()
