@@ -1,19 +1,22 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"github.com/fasthttp/router"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/maxim-kuderko/service-template/internal/initializers"
-	"github.com/maxim-kuderko/service-template/internal/repositories/primary"
-	"github.com/maxim-kuderko/service-template/internal/service"
-	"github.com/maxim-kuderko/service-template/pkg/requests"
-	"github.com/maxim-kuderko/service-template/pkg/responses"
+	"github.com/maxim-kuderko/metrics-collector/internal/initializers"
+	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
+	"github.com/maxim-kuderko/metrics-collector/internal/service"
+	metricsEnt "github.com/maxim-kuderko/metrics/entities"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/fx"
+	"io"
+	"runtime"
+	"sync"
 )
 
 func main() {
@@ -22,8 +25,8 @@ func main() {
 		fx.Provide(
 			initializers.NewConfig,
 			initializers.NewMetrics,
-			primary.NewCachedDB,
 			service.NewService,
+			repositories.NewStdout,
 			newHandler,
 			route,
 		),
@@ -38,12 +41,17 @@ func main() {
 func route(h *handler) *router.Router {
 	router := router.New()
 	router.GET("/health", h.Health)
-	router.POST("/get", h.Get)
+	router.POST("/send", h.Send)
 	return router
 }
 
 func webserver(r *router.Router, v *viper.Viper) {
-	log.Error(fasthttp.ListenAndServe(fmt.Sprintf(`:%s`, v.GetString(`HTTP_SERVER_PORT`)), r.Handler))
+	server := fasthttp.Server{
+		Handler:           r.Handler,
+		TCPKeepalive:      true,
+		StreamRequestBody: true,
+	}
+	log.Error(server.ListenAndServe(fmt.Sprintf(`:%s`, v.GetString(`HTTP_SERVER_PORT`))))
 }
 
 type handler struct {
@@ -59,38 +67,49 @@ func (h *handler) Health(ctx *fasthttp.RequestCtx) {
 
 }
 
-func (h *handler) Get(ctx *fasthttp.RequestCtx) {
-	var req requests.Get
-	if err := parser(ctx, &req); err != nil {
-		return
-	}
-	resp, err := h.s.Get(req)
-	response(ctx, resp, err) // nolint
+func (h *handler) Send(ctx *fasthttp.RequestCtx) {
+	metrics := parser(ctx)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for m := range metrics {
+			h.s.Send(m)
+		}
+	}()
+	wg.Wait()
 	return
 }
 
-func parser(c *fasthttp.RequestCtx, req requests.BaseRequester) error {
-	err := jsoniter.ConfigFastest.Unmarshal(c.PostBody(), &req)
-	if err != nil {
-		c.SetStatusCode(fasthttp.StatusBadRequest)
-		jsoniter.ConfigFastest.NewEncoder(c).Encode(err)
-		return err
-	}
-	req.WithContext(c)
-	return nil
-}
+func parser(c *fasthttp.RequestCtx) chan metricsEnt.AggregatedMetric {
+	output := make(chan metricsEnt.AggregatedMetric, runtime.GOMAXPROCS(0))
+	go func() {
+		defer close(output)
+		r := bufio.NewReader(c.RequestBodyStream())
+		ok := true
+		for {
+			b, err := r.ReadBytes('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				fmt.Println(err)
+				break
+			}
+			var m metricsEnt.AggregatedMetric
+			err = jsoniter.ConfigFastest.Unmarshal(b, &m)
+			if err != nil {
+				c.SetStatusCode(fasthttp.StatusBadRequest)
+				jsoniter.ConfigFastest.NewEncoder(c).Encode(err)
+				ok = false
+				break
+			}
+			output <- m
+		}
+		if ok {
+			c.SetStatusCode(fasthttp.StatusNoContent)
+		}
+	}()
 
-func response(c *fasthttp.RequestCtx, resp responses.BaseResponser, err error) error {
-	c.SetContentType(`application/json`)
-	if err != nil {
-		c.SetStatusCode(fasthttp.StatusInternalServerError)
-		err := jsoniter.ConfigFastest.NewEncoder(c).Encode(err)
-		return err
-	}
-	c.SetStatusCode(resp.ResponseStatusCode())
-	if err := jsoniter.ConfigFastest.NewEncoder(c).Encode(resp); err != nil {
-		c.SetStatusCode(fasthttp.StatusInternalServerError)
-		return jsoniter.ConfigFastest.NewEncoder(c).Encode(err)
-	}
-	return nil
+	return output
 }

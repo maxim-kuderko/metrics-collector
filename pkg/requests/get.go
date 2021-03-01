@@ -1,6 +1,5 @@
 package requests
 
-type Get struct {
-	BaseRequest
-	Key string `json:"key"`
-}
+import "github.com/maxim-kuderko/metrics/entities"
+
+type Metrics entities.AggregatedMetric
