@@ -59,13 +59,8 @@ func newServer(s *service.Service) proto.MetricsCollectorGrpcServer {
 var emptyRes = &types.Empty{}
 
 func (h *server) Send(stream proto.MetricsCollectorGrpc_SendServer) error {
-	m := proto.MetricPool.Get().(*proto.Metric)
-	defer func() {
-		m.Values.Reset()
-		m.Reset()
-		proto.MetricPool.Put(m)
-	}()
 	for {
+		m := proto.MetricPool.Get().(*proto.Metric)
 		if err := stream.RecvMsg(m); err == io.EOF {
 			break
 		} else if err != nil {
