@@ -19,7 +19,7 @@ func (s Stdout) Send(r proto.Metrics) error {
 func NewStdout() Repo {
 	s := &Stdout{c: atomic.NewInt64(0)}
 	go func() {
-		w := 3
+		w := 1
 		t := time.NewTicker(time.Second * time.Duration(w))
 		for range t.C {
 			fmt.Println(fmt.Sprintf("%0.2fm req/sec ", float64(s.c.Swap(0))/1000000/float64(w)))

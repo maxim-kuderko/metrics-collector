@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
+	"io"
 	"net"
 	_ "net/http/pprof"
 )
@@ -41,6 +42,7 @@ func grpcInit(s proto.MetricsCollectorGrpcServer, v *viper.Viper) {
 	if err := serv.Serve(lis); err != nil {
 		panic(err)
 	}
+
 }
 
 type server struct {
@@ -56,7 +58,22 @@ func newServer(s *service.Service) proto.MetricsCollectorGrpcServer {
 
 var emptyRes = &types.Empty{}
 
-func (h *server) Get(request *proto.Metric) (*types.Empty, error) {
-	h.s.Send(request)
-	return emptyRes, nil
+func (h *server) Send(stream proto.MetricsCollectorGrpc_SendServer) error {
+	m := proto.MetricPool.Get().(*proto.Metric)
+	defer func() {
+		m.Values.Reset()
+		m.Reset()
+		proto.MetricPool.Put(m)
+	}()
+	for {
+		if err := stream.RecvMsg(m); err == io.EOF {
+			break
+		} else if err != nil {
+			fmt.Println(err)
+			break
+		}
+		h.s.Send(m)
+	}
+
+	return nil
 }
