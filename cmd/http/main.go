@@ -10,15 +10,13 @@ import (
 	"github.com/maxim-kuderko/metrics-collector/internal/initializers"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
 	"github.com/maxim-kuderko/metrics-collector/internal/service"
-	"github.com/maxim-kuderko/metrics-collector/pkg/requests"
-	metricsEnt "github.com/maxim-kuderko/metrics/entities"
+	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/spf13/viper"
 	"github.com/valyala/fasthttp"
 	"go.uber.org/fx"
 	"io"
 	"net/http"
-	_ "net/http/pprof"
 	"sync"
 )
 
@@ -82,8 +80,8 @@ func (h *handler) Send(w http.ResponseWriter, r *http.Request, _ httprouter.Para
 	return
 }
 
-func parser(w http.ResponseWriter, r *http.Request) chan *metricsEnt.AggregatedMetric {
-	output := make(chan *metricsEnt.AggregatedMetric, 100)
+func parser(w http.ResponseWriter, r *http.Request) chan *proto.Metric {
+	output := make(chan *proto.Metric, 100)
 	go func() {
 		defer close(output)
 		defer r.Body.Close()
@@ -98,7 +96,7 @@ func parser(w http.ResponseWriter, r *http.Request) chan *metricsEnt.AggregatedM
 				fmt.Println(err)
 				break
 			}
-			m := requests.MetricPool.Get().(*metricsEnt.AggregatedMetric)
+			m := proto.MetricPool.Get().(*proto.Metric)
 			err = jsoniter.ConfigFastest.Unmarshal(b, &m)
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)

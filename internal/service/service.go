@@ -3,8 +3,7 @@ package service
 import (
 	"fmt"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
-	"github.com/maxim-kuderko/metrics-collector/pkg/requests"
-	metricsEnt "github.com/maxim-kuderko/metrics/entities"
+	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/spf13/viper"
 	"sync"
 	"time"
@@ -13,7 +12,7 @@ import (
 type ServiceFunc func(r interface{}) (interface{}, error)
 
 type Service struct {
-	buffer         []metricsEnt.Metrics
+	buffer         []proto.Metrics
 	mu             []*sync.Mutex
 	ticker         *time.Ticker
 	done           chan bool
@@ -27,15 +26,15 @@ var MetricsPool = sync.Pool{New: newBuff()}
 
 func newBuff() func() interface{} {
 	return func() interface{} {
-		return metricsEnt.Metrics{}
+		return proto.Metrics{}
 	}
 }
 
 func NewService(p repositories.Repo, v *viper.Viper) *Service {
-	buff := make([]metricsEnt.Metrics, 0, v.GetInt(`SHARDS`))
+	buff := make([]proto.Metrics, 0, v.GetInt(`SHARDS`))
 	mu := make([]*sync.Mutex, 0, v.GetInt(`SHARDS`))
 	for i := 0; i < v.GetInt(`SHARDS`); i++ {
-		buff = append(buff, MetricsPool.Get().(metricsEnt.Metrics))
+		buff = append(buff, MetricsPool.Get().(proto.Metrics))
 		mu = append(mu, &sync.Mutex{})
 	}
 	s := &Service{
@@ -50,26 +49,27 @@ func NewService(p repositories.Repo, v *viper.Viper) *Service {
 	return s
 }
 
-func (s *Service) flusher() {
+func (r *Service) flusher() {
 	for {
 		select {
-		case <-s.ticker.C:
-			for i, mu := range s.mu {
+		case <-r.ticker.C:
+			for i, mu := range r.mu {
 				mu.Lock()
-				s.flush(i)
+				r.flush(i)
 				mu.Unlock()
 			}
-		case <-s.done:
+		case <-r.done:
 			return
 		}
 	}
 }
 
-func (r *Service) Send(metric *metricsEnt.AggregatedMetric) {
+func (r *Service) Send(metric *proto.Metric) {
 	r.send(metric)
 }
 
-func (r *Service) send(metric *metricsEnt.AggregatedMetric) {
+func (r *Service) send(m *proto.Metric) {
+	metric := &(*m)
 	shard := metric.Hash % uint64(len(r.mu))
 	r.mu[shard].Lock()
 	defer r.mu[shard].Unlock()
@@ -98,15 +98,16 @@ func (r *Service) flush(i int) {
 	}
 	r.wg.Add(1)
 	tmp := r.buffer[i]
-	r.buffer[i] = MetricsPool.Get().(metricsEnt.Metrics)
+	r.buffer[i] = MetricsPool.Get().(proto.Metrics)
 	r.flushSemaphore <- struct{}{}
 	go func() {
 		defer func() {
 			<-r.flushSemaphore
 			tmp.Reset()
 			for _, m := range tmp {
-				requests.Reset(m)
-				requests.MetricPool.Put(m)
+				m.Values.Reset()
+				m.Reset()
+				proto.MetricPool.Put(m)
 			}
 			MetricsPool.Put(tmp)
 			r.wg.Done()

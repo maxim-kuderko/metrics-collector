@@ -1,0 +1,22 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+option go_package = "github.com/maxim-kuderko/metrics-collector/proto";
+
+service MetricsCollectorGrpc {
+  rpc Send (stream Metric) returns (stream google.protobuf.Empty) {}
+}
+
+message Metric {
+  string Name = 1;
+  int64 Time = 2;
+  uint64  Hash = 3;
+  Values Values = 4;
+  repeated string Tags = 5;
+}
+
+message Values {
+  int64 Count = 1;
+  double Sum = 2;
+  double Min = 3;
+  double Max = 4;
+}

@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"fmt"
-	metricsEnt "github.com/maxim-kuderko/metrics/entities"
+	"github.com/maxim-kuderko/metrics-collector/proto"
 	"go.uber.org/atomic"
 	"time"
 )
@@ -11,7 +11,7 @@ type Stdout struct {
 	c *atomic.Int64
 }
 
-func (s Stdout) Send(r metricsEnt.Metrics) error {
+func (s Stdout) Send(r proto.Metrics) error {
 	s.c.Add(int64(len(r)))
 	return nil
 }

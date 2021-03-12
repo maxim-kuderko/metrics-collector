@@ -1,9 +1,9 @@
 package repositories
 
 import (
-	metricsEnt "github.com/maxim-kuderko/metrics/entities"
+	"github.com/maxim-kuderko/metrics-collector/proto"
 )
 
 type Repo interface {
-	Send(r metricsEnt.Metrics) error
+	Send(r proto.Metrics) error
 }
