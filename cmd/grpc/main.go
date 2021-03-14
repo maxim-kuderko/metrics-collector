@@ -10,9 +10,9 @@ import (
 	"github.com/maxim-kuderko/metrics-collector/internal/service"
 	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/spf13/viper"
+	_ "github.com/un000/grpc-snappy"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
-	_ "google.golang.org/grpc/encoding/gzip"
 	"log"
 	"net"
 	"net/http"
@@ -43,7 +43,7 @@ func grpcInit(s proto.MetricsCollectorGrpcServer, v *viper.Viper) {
 	if err != nil {
 		panic(err)
 	}
-	serv := grpc.NewServer(grpc.MaxRecvMsgSize(100 << 20))
+	serv := grpc.NewServer(grpc.MaxRecvMsgSize(1000 << 20))
 	proto.RegisterMetricsCollectorGrpcServer(serv, s)
 	if err := serv.Serve(lis); err != nil {
 		panic(err)

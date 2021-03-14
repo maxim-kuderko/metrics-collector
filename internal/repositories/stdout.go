@@ -12,11 +12,11 @@ type Stdout struct {
 }
 
 func (s Stdout) Send(r proto.Metrics) error {
-	c := int64(0)
+	c := float64(0)
 	for _, m := range r {
-		c += m.Values.Count
+		c += m.Values.Sum
 	}
-	s.c.Add(c)
+	s.c.Add(int64(c))
 	return nil
 }
 
