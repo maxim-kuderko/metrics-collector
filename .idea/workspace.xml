@@ -5,8 +5,6 @@
       <change afterPath="$PROJECT_DIR$/.idea/metrics-collector.iml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/proto/metrics.pb.go" beforeDir="false" afterPath="$PROJECT_DIR$/proto/metrics.pb.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/proto/metrics.proto" beforeDir="false" afterPath="$PROJECT_DIR$/proto/metrics.proto" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
