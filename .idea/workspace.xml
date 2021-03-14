@@ -5,11 +5,8 @@
       <change afterPath="$PROJECT_DIR$/.idea/metrics-collector.iml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/cmd/grpc/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/cmd/grpc/main.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/internal/repositories/stdout.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/repositories/stdout.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/proto/metrics.pb.go" beforeDir="false" afterPath="$PROJECT_DIR$/proto/metrics.pb.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/proto/metrics.proto" beforeDir="false" afterPath="$PROJECT_DIR$/proto/metrics.proto" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
