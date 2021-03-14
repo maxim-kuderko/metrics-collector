@@ -24,4 +24,5 @@ message Values {
   double Sum = 2;
   double Min = 3;
   double Max = 4;
+  double RawValue = 5;
 }
