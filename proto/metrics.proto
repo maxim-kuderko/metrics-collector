@@ -3,7 +3,12 @@ import "google/protobuf/empty.proto";
 option go_package = "github.com/maxim-kuderko/metrics-collector/proto";
 
 service MetricsCollectorGrpc {
-  rpc Send (stream Metric) returns (stream google.protobuf.Empty) {}
+  rpc Send (MetricsRequest) returns (google.protobuf.Empty) {}
+}
+
+
+message MetricsRequest{
+  repeated Metric Metric = 1;
 }
 
 message Metric {

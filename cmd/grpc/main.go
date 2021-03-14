@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/maxim-kuderko/metrics-collector/internal/initializers"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
 	"github.com/maxim-kuderko/metrics-collector/internal/service"
@@ -11,12 +12,17 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
-	"io"
+	_ "google.golang.org/grpc/encoding/gzip"
+	"log"
 	"net"
+	"net/http"
 	_ "net/http/pprof"
 )
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	app := fx.New(
 		fx.NopLogger,
 		fx.Provide(
@@ -58,17 +64,9 @@ func newServer(s *service.Service) proto.MetricsCollectorGrpcServer {
 
 var emptyRes = &types.Empty{}
 
-func (h *server) Send(stream proto.MetricsCollectorGrpc_SendServer) error {
-	for {
-		m := proto.MetricPool.Get().(*proto.Metric)
-		if err := stream.RecvMsg(m); err == io.EOF {
-			break
-		} else if err != nil {
-			fmt.Println(err)
-			break
-		}
+func (h *server) Send(ctx context.Context, metrics *proto.MetricsRequest) (*empty.Empty, error) {
+	for _, m := range metrics.Metric {
 		h.s.Send(m)
 	}
-
-	return nil
+	return nil, nil
 }
