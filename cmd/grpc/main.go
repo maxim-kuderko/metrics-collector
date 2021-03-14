@@ -43,7 +43,7 @@ func grpcInit(s proto.MetricsCollectorGrpcServer, v *viper.Viper) {
 	if err != nil {
 		panic(err)
 	}
-	serv := grpc.NewServer()
+	serv := grpc.NewServer(grpc.MaxRecvMsgSize(100 << 20))
 	proto.RegisterMetricsCollectorGrpcServer(serv, s)
 	if err := serv.Serve(lis); err != nil {
 		panic(err)
@@ -68,5 +68,5 @@ func (h *server) Send(ctx context.Context, metrics *proto.MetricsRequest) (*empt
 	for _, m := range metrics.Metric {
 		h.s.Send(m)
 	}
-	return nil, nil
+	return &empty.Empty{}, nil
 }
