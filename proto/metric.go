@@ -32,4 +32,5 @@ func (am *Metric) Merge(new *Metric) {
 	if new.Values.Max > am.Values.Max {
 		am.Values.Max = new.Values.Max
 	}
+	am.Values.Last = new.Values.First
 }
