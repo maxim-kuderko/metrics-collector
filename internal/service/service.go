@@ -22,19 +22,11 @@ type Service struct {
 	primaryRepo repositories.Repo
 }
 
-var MetricsPool = sync.Pool{New: newBuff()}
-
-func newBuff() func() interface{} {
-	return func() interface{} {
-		return proto.Metrics{}
-	}
-}
-
 func NewService(p repositories.Repo, v *viper.Viper) *Service {
 	buff := make([]proto.Metrics, 0, v.GetInt(`SHARDS`))
 	mu := make([]*sync.Mutex, 0, v.GetInt(`SHARDS`))
 	for i := 0; i < v.GetInt(`SHARDS`); i++ {
-		buff = append(buff, MetricsPool.Get().(proto.Metrics))
+		buff = append(buff, proto.Metrics{})
 		mu = append(mu, &sync.Mutex{})
 	}
 	s := &Service{
@@ -68,8 +60,7 @@ func (r *Service) Send(metric *proto.Metric) {
 	r.send(metric)
 }
 
-func (r *Service) send(m *proto.Metric) {
-	metric := &(*m)
+func (r *Service) send(metric *proto.Metric) {
 	shard := metric.Hash % uint64(len(r.mu))
 	r.mu[shard].Lock()
 	defer r.mu[shard].Unlock()
@@ -98,18 +89,11 @@ func (r *Service) flush(i int) {
 	}
 	r.wg.Add(1)
 	tmp := r.buffer[i]
-	r.buffer[i] = MetricsPool.Get().(proto.Metrics)
+	r.buffer[i] = proto.Metrics{}
 	r.flushSemaphore <- struct{}{}
 	go func() {
 		defer func() {
 			<-r.flushSemaphore
-			tmp.Reset()
-			for _, m := range tmp {
-				m.Values.Reset()
-				m.Reset()
-				proto.MetricPool.Put(m)
-			}
-			MetricsPool.Put(tmp)
 			r.wg.Done()
 		}()
 		if err := r.primaryRepo.Send(tmp); err != nil {

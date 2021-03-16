@@ -65,9 +65,10 @@ var emptyRes = &types.Empty{}
 
 func (h *server) Send(metrics proto.MetricsCollectorGrpc_SendServer) error {
 	for {
-		m := proto.MetricPool.Get().(*proto.Metric)
-		metrics.RecvMsg(m)
+		m, err := metrics.Recv()
+		if err != nil {
+			return err
+		}
 		h.s.Send(m)
-		proto.MetricPool.Put(m)
 	}
 }
