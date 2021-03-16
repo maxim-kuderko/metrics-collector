@@ -13,7 +13,6 @@ import (
 	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/spf13/viper"
-	"github.com/valyala/fasthttp"
 	"go.uber.org/fx"
 	"io"
 	"net/http"
@@ -86,7 +85,6 @@ func parser(w http.ResponseWriter, r *http.Request) chan *proto.Metric {
 		defer close(output)
 		defer r.Body.Close()
 		r := bufio.NewReader(snappy.NewReader(r.Body))
-		ok := true
 		for {
 			b, err := r.ReadBytes('\n')
 			if err != nil {
@@ -96,18 +94,15 @@ func parser(w http.ResponseWriter, r *http.Request) chan *proto.Metric {
 				fmt.Println(err)
 				break
 			}
+			if len(b) < 2 {
+				continue
+			}
 			m := proto.MetricPool.Get().(*proto.Metric)
-			err = jsoniter.ConfigFastest.Unmarshal(b, &m)
+			err = jsoniter.ConfigFastest.Unmarshal(b, m)
 			if err != nil {
-				w.WriteHeader(http.StatusBadRequest)
-				jsoniter.ConfigFastest.NewEncoder(w).Encode(err)
-				ok = false
-				break
+				continue
 			}
 			output <- m
-		}
-		if ok {
-			w.WriteHeader(fasthttp.StatusNoContent)
 		}
 	}()
 

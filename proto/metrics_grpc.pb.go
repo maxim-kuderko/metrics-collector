@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MetricsCollectorGrpcClient interface {
-	Send(ctx context.Context, in *MetricsRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	Send(ctx context.Context, opts ...grpc.CallOption) (MetricsCollectorGrpc_SendClient, error)
 }
 
 type metricsCollectorGrpcClient struct {
@@ -30,20 +30,45 @@ func NewMetricsCollectorGrpcClient(cc grpc.ClientConnInterface) MetricsCollector
 	return &metricsCollectorGrpcClient{cc}
 }
 
-func (c *metricsCollectorGrpcClient) Send(ctx context.Context, in *MetricsRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
-	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/MetricsCollectorGrpc/Send", in, out, opts...)
+func (c *metricsCollectorGrpcClient) Send(ctx context.Context, opts ...grpc.CallOption) (MetricsCollectorGrpc_SendClient, error) {
+	stream, err := c.cc.NewStream(ctx, &MetricsCollectorGrpc_ServiceDesc.Streams[0], "/MetricsCollectorGrpc/Send", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &metricsCollectorGrpcSendClient{stream}
+	return x, nil
+}
+
+type MetricsCollectorGrpc_SendClient interface {
+	Send(*Metric) error
+	CloseAndRecv() (*empty.Empty, error)
+	grpc.ClientStream
+}
+
+type metricsCollectorGrpcSendClient struct {
+	grpc.ClientStream
+}
+
+func (x *metricsCollectorGrpcSendClient) Send(m *Metric) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *metricsCollectorGrpcSendClient) CloseAndRecv() (*empty.Empty, error) {
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	m := new(empty.Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // MetricsCollectorGrpcServer is the server API for MetricsCollectorGrpc service.
 // All implementations must embed UnimplementedMetricsCollectorGrpcServer
 // for forward compatibility
 type MetricsCollectorGrpcServer interface {
-	Send(context.Context, *MetricsRequest) (*empty.Empty, error)
+	Send(MetricsCollectorGrpc_SendServer) error
 	mustEmbedUnimplementedMetricsCollectorGrpcServer()
 }
 
@@ -51,8 +76,8 @@ type MetricsCollectorGrpcServer interface {
 type UnimplementedMetricsCollectorGrpcServer struct {
 }
 
-func (UnimplementedMetricsCollectorGrpcServer) Send(context.Context, *MetricsRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Send not implemented")
+func (UnimplementedMetricsCollectorGrpcServer) Send(MetricsCollectorGrpc_SendServer) error {
+	return status.Errorf(codes.Unimplemented, "method Send not implemented")
 }
 func (UnimplementedMetricsCollectorGrpcServer) mustEmbedUnimplementedMetricsCollectorGrpcServer() {}
 
@@ -67,22 +92,30 @@ func RegisterMetricsCollectorGrpcServer(s grpc.ServiceRegistrar, srv MetricsColl
 	s.RegisterService(&MetricsCollectorGrpc_ServiceDesc, srv)
 }
 
-func _MetricsCollectorGrpc_Send_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MetricsRequest)
-	if err := dec(in); err != nil {
+func _MetricsCollectorGrpc_Send_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(MetricsCollectorGrpcServer).Send(&metricsCollectorGrpcSendServer{stream})
+}
+
+type MetricsCollectorGrpc_SendServer interface {
+	SendAndClose(*empty.Empty) error
+	Recv() (*Metric, error)
+	grpc.ServerStream
+}
+
+type metricsCollectorGrpcSendServer struct {
+	grpc.ServerStream
+}
+
+func (x *metricsCollectorGrpcSendServer) SendAndClose(m *empty.Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *metricsCollectorGrpcSendServer) Recv() (*Metric, error) {
+	m := new(Metric)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(MetricsCollectorGrpcServer).Send(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/MetricsCollectorGrpc/Send",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MetricsCollectorGrpcServer).Send(ctx, req.(*MetricsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return m, nil
 }
 
 // MetricsCollectorGrpc_ServiceDesc is the grpc.ServiceDesc for MetricsCollectorGrpc service.
@@ -91,12 +124,13 @@ func _MetricsCollectorGrpc_Send_Handler(srv interface{}, ctx context.Context, de
 var MetricsCollectorGrpc_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "MetricsCollectorGrpc",
 	HandlerType: (*MetricsCollectorGrpcServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "Send",
-			Handler:    _MetricsCollectorGrpc_Send_Handler,
+			StreamName:    "Send",
+			Handler:       _MetricsCollectorGrpc_Send_Handler,
+			ClientStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "metrics.proto",
 }

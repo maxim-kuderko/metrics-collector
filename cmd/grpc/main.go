@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/maxim-kuderko/metrics-collector/internal/initializers"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
 	"github.com/maxim-kuderko/metrics-collector/internal/service"
@@ -64,9 +63,11 @@ func newServer(s *service.Service) proto.MetricsCollectorGrpcServer {
 
 var emptyRes = &types.Empty{}
 
-func (h *server) Send(ctx context.Context, metrics *proto.MetricsRequest) (*empty.Empty, error) {
-	for _, m := range metrics.Metric {
+func (h *server) Send(metrics proto.MetricsCollectorGrpc_SendServer) error {
+	for {
+		m := proto.MetricPool.Get().(*proto.Metric)
+		metrics.RecvMsg(m)
 		h.s.Send(m)
+		proto.MetricPool.Put(m)
 	}
-	return &empty.Empty{}, nil
 }
