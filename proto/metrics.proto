@@ -4,8 +4,11 @@ option go_package = "github.com/maxim-kuderko/metrics-collector/proto";
 
 service MetricsCollectorGrpc {
   rpc Send (stream Metric) returns (google.protobuf.Empty) {}
+  rpc Bulk (MetricsRequest) returns (google.protobuf.Empty) {}
 }
-
+message MetricsRequest {
+  repeated Metric metrics = 1;
+}
 
 message Metric {
   string name = 1;
