@@ -10,18 +10,14 @@ import (
 	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/spf13/viper"
 	_ "github.com/un000/grpc-snappy"
+	"go.uber.org/atomic"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
-	"log"
 	"net"
-	"net/http"
-	_ "net/http/pprof"
+	"time"
 )
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 	app := fx.New(
 		fx.NopLogger,
 		fx.Provide(
@@ -42,7 +38,7 @@ func grpcInit(s proto.MetricsCollectorGrpcServer, v *viper.Viper) {
 	if err != nil {
 		panic(err)
 	}
-	serv := grpc.NewServer(grpc.MaxRecvMsgSize(1000 << 20))
+	serv := grpc.NewServer(grpc.ReadBufferSize(100 << 20))
 	proto.RegisterMetricsCollectorGrpcServer(serv, s)
 	if err := serv.Serve(lis); err != nil {
 		panic(err)
@@ -52,13 +48,23 @@ func grpcInit(s proto.MetricsCollectorGrpcServer, v *viper.Viper) {
 
 type server struct {
 	s *service.Service
+	c *atomic.Int64
 	proto.UnimplementedMetricsCollectorGrpcServer
 }
 
 func newServer(s *service.Service) proto.MetricsCollectorGrpcServer {
-	return &server{
+	srv := &server{
 		s: s,
+		c: atomic.NewInt64(0),
 	}
+	go func() {
+		w := 1
+		t := time.NewTicker(time.Second * time.Duration(w))
+		for range t.C {
+			fmt.Println(fmt.Sprintf("server %0.2fm req/sec ", float64(srv.c.Swap(0))/1000000/float64(w)))
+		}
+	}()
+	return srv
 }
 
 var emptyRes = &types.Empty{}
@@ -69,6 +75,8 @@ func (h *server) Send(metrics proto.MetricsCollectorGrpc_SendServer) error {
 		if err != nil {
 			return err
 		}
-		h.s.Send(m)
+		h.c.Add(m.Values.Count)
+
+		//h.s.Send(m)
 	}
 }

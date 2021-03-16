@@ -8,18 +8,18 @@ service MetricsCollectorGrpc {
 
 
 message Metric {
-  string Name = 1;
-  int64 Time = 2;
-  uint64  Hash = 3;
-  Values Values = 4;
-  repeated string Tags = 5;
+  string name = 1;
+  int64 time = 2;
+  uint64  hash = 3;
+  Values values = 4;
+  repeated string tags = 5;
 }
 
 message Values {
-  int64 Count = 1;
-  double Sum = 2;
-  double Min = 3;
-  double Max = 4;
-  double First = 5;
-  double Last = 6;
+  int64 count = 1;
+  double sum = 2;
+  double min = 3;
+  double max = 4;
+  double first = 5;
+  double last = 6;
 }
