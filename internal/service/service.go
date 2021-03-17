@@ -5,6 +5,7 @@ import (
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
 	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/spf13/viper"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -12,24 +13,21 @@ import (
 type ServiceFunc func(r interface{}) (interface{}, error)
 
 type Service struct {
-	buffer         *sync.Map
-	shards         uint64
-	ticker         *time.Ticker
-	done           chan bool
-	wg             sync.WaitGroup
-	flushSemaphore chan struct{}
+	buffer *sync.Map
+	shards uint64
+	ticker *time.Ticker
+	done   chan bool
 
 	primaryRepo repositories.Repo
 }
 
 func NewService(p repositories.Repo, v *viper.Viper) *Service {
 	s := &Service{
-		buffer:         &sync.Map{},
-		shards:         v.GetUint64(`SHARDS`),
-		done:           make(chan bool, 1),
-		flushSemaphore: make(chan struct{}, v.GetInt(`SHARDS`)*2),
-		primaryRepo:    p,
-		ticker:         time.NewTicker(v.GetDuration(`FLUSH_INTERVAL`) * time.Millisecond),
+		buffer:      &sync.Map{},
+		shards:      uint64(runtime.GOMAXPROCS(0)),
+		done:        make(chan bool, 1),
+		primaryRepo: p,
+		ticker:      time.NewTicker(v.GetDuration(`FLUSH_INTERVAL`) * time.Millisecond),
 	}
 	go s.flusher()
 	return s
@@ -67,7 +65,6 @@ func (r *Service) Close() {
 		value.(*proto.Metrics).Reset()
 		return true
 	})
-	r.wg.Wait()
 }
 
 func (r *Service) flush(i int) {
