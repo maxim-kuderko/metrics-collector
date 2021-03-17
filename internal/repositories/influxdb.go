@@ -34,7 +34,7 @@ func (s InfluxDB) Send(r proto.Metrics) error {
 
 func NewInfluxDB(v *viper.Viper) Repo {
 
-	client := influxdb2.NewClientWithOptions(v.GetString(`INFLUXDB_URL`), v.GetString(`INFLUXDB_TOKEN`), influxdb2.DefaultOptions().SetUseGZip(true).SetFlushInterval(100))
+	client := influxdb2.NewClientWithOptions(v.GetString(`INFLUXDB_URL`), v.GetString(`INFLUXDB_TOKEN`), influxdb2.DefaultOptions().SetFlushInterval(1000))
 	writeAPI := client.WriteAPI(v.GetString(`INFLUXDB_ORG`), v.GetString(`INFLUXDB_BUCKET`))
 	s := &InfluxDB{
 		w: writeAPI,
