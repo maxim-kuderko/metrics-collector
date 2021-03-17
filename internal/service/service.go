@@ -12,8 +12,8 @@ import (
 type ServiceFunc func(r interface{}) (interface{}, error)
 
 type Service struct {
-	buffer         []proto.Metrics
-	mu             []*sync.Mutex
+	buffer         *sync.Map
+	shards         uint64
 	ticker         *time.Ticker
 	done           chan bool
 	wg             sync.WaitGroup
@@ -23,15 +23,9 @@ type Service struct {
 }
 
 func NewService(p repositories.Repo, v *viper.Viper) *Service {
-	buff := make([]proto.Metrics, 0, v.GetInt(`SHARDS`))
-	mu := make([]*sync.Mutex, 0, v.GetInt(`SHARDS`))
-	for i := 0; i < v.GetInt(`SHARDS`); i++ {
-		buff = append(buff, proto.Metrics{})
-		mu = append(mu, &sync.Mutex{})
-	}
 	s := &Service{
-		buffer:         buff,
-		mu:             mu,
+		buffer:         &sync.Map{},
+		shards:         v.GetUint64(`SHARDS`),
 		done:           make(chan bool, 1),
 		flushSemaphore: make(chan struct{}, v.GetInt(`SHARDS`)*2),
 		primaryRepo:    p,
@@ -45,11 +39,12 @@ func (r *Service) flusher() {
 	for {
 		select {
 		case <-r.ticker.C:
-			for i, mu := range r.mu {
-				mu.Lock()
-				r.flush(i)
-				mu.Unlock()
-			}
+			r.buffer.Range(func(key, value interface{}) bool {
+				metrics := value.(*proto.Metrics)
+				r.primaryRepo.Send(metrics)
+				metrics.Reset()
+				return true
+			})
 		case <-r.done:
 			return
 		}
@@ -61,44 +56,28 @@ func (r *Service) Send(metric *proto.Metric) {
 }
 
 func (r *Service) send(metric *proto.Metric) {
-	shard := metric.Hash % uint64(len(r.mu))
-	r.mu[shard].Lock()
-	defer r.mu[shard].Unlock()
-	v, ok := r.buffer[shard][metric.Hash]
-	if !ok {
-		tmp := &(*metric)
-		tmp.Values = &(*metric.Values)
-		r.buffer[shard][metric.Hash] = tmp
-		return
-	}
-	v.Merge(metric)
+	shard := metric.Hash % r.shards
+	v, _ := r.buffer.LoadOrStore(shard, proto.NewMetrics())
+	v.(*proto.Metrics).Add(metric)
 }
 
 func (r *Service) Close() {
 	r.done <- true
-	for i, mu := range r.mu {
-		mu.Lock()
-		r.flush(i)
-		mu.Unlock()
-	}
+	r.buffer.Range(func(key, value interface{}) bool {
+		value.(*proto.Metrics).Reset()
+		return true
+	})
 	r.wg.Wait()
 }
 
 func (r *Service) flush(i int) {
-	if len(r.buffer[i]) == 0 {
+	v, _ := r.buffer.Load(i)
+	metrics := v.(*proto.Metrics)
+	if len(metrics.Data()) == 0 {
 		return
 	}
-	r.wg.Add(1)
-	tmp := r.buffer[i]
-	r.buffer[i] = proto.Metrics{}
-	r.flushSemaphore <- struct{}{}
-	go func() {
-		defer func() {
-			<-r.flushSemaphore
-			r.wg.Done()
-		}()
-		if err := r.primaryRepo.Send(tmp); err != nil {
-			fmt.Println(err)
-		}
-	}()
+	if err := r.primaryRepo.Send(metrics); err != nil {
+		fmt.Println(err)
+	}
+
 }

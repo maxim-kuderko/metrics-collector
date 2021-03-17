@@ -16,9 +16,11 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"runtime"
 )
 
 func main() {
+	runtime.SetMutexProfileFraction(5)
 	go func() {
 		fmt.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
@@ -28,7 +30,7 @@ func main() {
 		fx.Provide(
 			initializers.NewConfig,
 			service.NewService,
-			repositories.NewInfluxDB,
+			repositories.NewStdout,
 		),
 		fx.Invoke(webserver),
 	)

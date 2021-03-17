@@ -13,8 +13,8 @@ type InfluxDB struct {
 	w api.WriteAPI
 }
 
-func (s InfluxDB) Send(r proto.Metrics) error {
-	for _, m := range r {
+func (s InfluxDB) Send(r *proto.Metrics) error {
+	for _, m := range r.Data() {
 		tags := map[string]string{}
 		for i := 0; i < len(m.Tags)-1; i += 2 {
 			tags[m.Tags[i]] = m.Tags[i+1]

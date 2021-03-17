@@ -5,5 +5,5 @@ import (
 )
 
 type Repo interface {
-	Send(r proto.Metrics) error
+	Send(r *proto.Metrics) error
 }

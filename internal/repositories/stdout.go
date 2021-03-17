@@ -11,9 +11,9 @@ type Stdout struct {
 	c *atomic.Int64
 }
 
-func (s Stdout) Send(r proto.Metrics) error {
+func (s Stdout) Send(r *proto.Metrics) error {
 	c := float64(0)
-	for _, m := range r {
+	for _, m := range r.Data() {
 		c += m.Values.Sum
 	}
 	s.c.Add(int64(c))
