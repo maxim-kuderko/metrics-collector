@@ -28,7 +28,7 @@ func main() {
 		fx.Provide(
 			initializers.NewConfig,
 			service.NewService,
-			repositories.NewStdout,
+			repositories.NewInfluxDB,
 		),
 		fx.Invoke(webserver),
 	)

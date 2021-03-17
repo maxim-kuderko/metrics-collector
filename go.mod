@@ -6,6 +6,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.3 // indirect
+	github.com/influxdata/influxdb-client-go/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.11.8
 	github.com/spf13/viper v1.7.1
 	github.com/un000/grpc-snappy v1.1.0
