@@ -6,14 +6,13 @@ import (
 	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/spf13/viper"
 	"runtime"
-	"sync"
 	"time"
 )
 
 type ServiceFunc func(r interface{}) (interface{}, error)
 
 type Service struct {
-	buffer *sync.Map
+	buffer []*proto.Metrics
 	shards uint64
 	ticker *time.Ticker
 	done   chan bool
@@ -22,9 +21,14 @@ type Service struct {
 }
 
 func NewService(p repositories.Repo, v *viper.Viper) *Service {
-	s := &Service{
-		buffer:      &sync.Map{},
-		shards:      uint64(runtime.GOMAXPROCS(0)),
+	shards := runtime.GOMAXPROCS(0)
+	buff := make([]*proto.Metrics, 0, shards)
+	for i := 0; i < shards; i++ {
+		buff = append(buff, proto.NewMetrics())
+	}
+	var s = &Service{
+		buffer:      buff,
+		shards:      uint64(shards),
 		done:        make(chan bool, 1),
 		primaryRepo: p,
 		ticker:      time.NewTicker(v.GetDuration(`FLUSH_INTERVAL`) * time.Millisecond),
@@ -37,12 +41,9 @@ func (r *Service) flusher() {
 	for {
 		select {
 		case <-r.ticker.C:
-			r.buffer.Range(func(key, value interface{}) bool {
-				metrics := value.(*proto.Metrics)
-				r.primaryRepo.Send(metrics)
-				metrics.Reset()
-				return true
-			})
+			for _, b := range r.buffer {
+				r.primaryRepo.Send(b)
+			}
 		case <-r.done:
 			return
 		}
@@ -54,27 +55,18 @@ func (r *Service) Send(metric *proto.Metric) {
 }
 
 func (r *Service) send(metric *proto.Metric) {
-	shard := metric.Hash % r.shards
-	v, _ := r.buffer.LoadOrStore(shard, proto.NewMetrics())
-	v.(*proto.Metrics).Add(metric)
+	r.buffer[metric.Hash%r.shards].Add(metric)
 }
 
 func (r *Service) Close() {
 	r.done <- true
-	r.buffer.Range(func(key, value interface{}) bool {
-		value.(*proto.Metrics).Reset()
-		return true
-	})
+	for _, buff := range r.buffer {
+		r.primaryRepo.Send(buff)
+	}
 }
 
 func (r *Service) flush(i int) {
-	v, _ := r.buffer.Load(i)
-	metrics := v.(*proto.Metrics)
-	if len(metrics.Data()) == 0 {
-		return
-	}
-	if err := r.primaryRepo.Send(metrics); err != nil {
+	if err := r.primaryRepo.Send(r.buffer[i]); err != nil {
 		fmt.Println(err)
 	}
-
 }
