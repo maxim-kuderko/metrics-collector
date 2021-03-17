@@ -66,8 +66,9 @@ func (r *Service) send(metric *proto.Metric) {
 	defer r.mu[shard].Unlock()
 	v, ok := r.buffer[shard][metric.Hash]
 	if !ok {
-		r.buffer[shard][metric.Hash] = metric
-		v = metric
+		tmp := &(*metric)
+		tmp.Values = &(*metric.Values)
+		r.buffer[shard][metric.Hash] = tmp
 		return
 	}
 	v.Merge(metric)

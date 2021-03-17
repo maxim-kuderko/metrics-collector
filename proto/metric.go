@@ -3,6 +3,7 @@ package proto
 import "sync"
 
 var MetricPool = sync.Pool{New: func() interface{} { return &Metric{Values: &Values{}} }}
+var MetricRequestPool = sync.Pool{New: func() interface{} { return &MetricsRequest{} }}
 
 type Metrics map[uint64]*Metric
 

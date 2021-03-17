@@ -4,17 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/gogo/protobuf/types"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/maxim-kuderko/metrics-collector/internal/initializers"
 	"github.com/maxim-kuderko/metrics-collector/internal/repositories"
 	"github.com/maxim-kuderko/metrics-collector/internal/service"
 	"github.com/maxim-kuderko/metrics-collector/proto"
 	"github.com/spf13/viper"
 	_ "github.com/un000/grpc-snappy"
-	"go.uber.org/atomic"
 	"go.uber.org/fx"
 	"google.golang.org/grpc"
 	"net"
-	"time"
 )
 
 func main() {
@@ -48,22 +47,13 @@ func grpcInit(s proto.MetricsCollectorGrpcServer, v *viper.Viper) {
 
 type server struct {
 	s *service.Service
-	c *atomic.Int64
 	proto.UnimplementedMetricsCollectorGrpcServer
 }
 
 func newServer(s *service.Service) proto.MetricsCollectorGrpcServer {
 	srv := &server{
 		s: s,
-		c: atomic.NewInt64(0),
 	}
-	go func() {
-		w := 1
-		t := time.NewTicker(time.Second * time.Duration(w))
-		for range t.C {
-			fmt.Println(fmt.Sprintf("server %0.2fm req/sec ", float64(srv.c.Swap(0))/1000000/float64(w)))
-		}
-	}()
 	return srv
 }
 
@@ -75,8 +65,13 @@ func (h *server) Send(metrics proto.MetricsCollectorGrpc_SendServer) error {
 		if err != nil {
 			return err
 		}
-		h.c.Add(m.Values.Count)
-
-		//h.s.Send(m)
+		h.s.Send(m)
 	}
+}
+
+func (h *server) Bulk(ctx context.Context, request *proto.MetricsRequest) (*empty.Empty, error) {
+	for _, m := range request.Metrics {
+		h.s.Send(m)
+	}
+	return &empty.Empty{}, nil
 }
