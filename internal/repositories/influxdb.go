@@ -19,6 +19,9 @@ func (s InfluxDB) Send(r *proto.Metrics) error {
 		for i := 0; i < len(m.Tags)-1; i += 2 {
 			tags[m.Tags[i]] = m.Tags[i+1]
 		}
+		for i := 0; i < len(m.DefaultTags)-1; i += 2 {
+			tags[m.DefaultTags[i]] = m.DefaultTags[i+1]
+		}
 		s.w.WritePoint(influxdb2.NewPoint(m.Name, tags, map[string]interface{}{
 			`min`:     m.Values.Min,
 			`max`:     m.Values.Max,

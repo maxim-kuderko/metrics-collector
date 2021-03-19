@@ -221,6 +221,8 @@ github.com/stretchr/testify v1.5.1 h1:nOGnQDM7FYENwehXlg/kFVnos3rEvtKTjRvOWSzb6H
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
+github.com/tidwall/spinlock v0.1.0 h1:McCloMBXOyGiQWG1D5kHOzSA50u1UV/g3P2SAiuvnPA=
+github.com/tidwall/spinlock v0.1.0/go.mod h1:tbnEyV8RKQ/S4PpqY6bxHz1TWomMPQ+YkJLcP2DByiA=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/un000/grpc-snappy v1.1.0 h1:clAEFIZxnRBla6qBb+7vdYC/Ca1yE1HNTPfg++tdVwo=
 github.com/un000/grpc-snappy v1.1.0/go.mod h1:kYL75Y4QDyKmRouQANTPwChjKIhJzSP9tRjpuzs+vng=

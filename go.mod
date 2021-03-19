@@ -9,6 +9,7 @@ require (
 	github.com/influxdata/influxdb-client-go/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.11.8
 	github.com/spf13/viper v1.7.1
+	github.com/tidwall/spinlock v0.1.0 // indirect
 	github.com/un000/grpc-snappy v1.1.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/fx v1.13.1
